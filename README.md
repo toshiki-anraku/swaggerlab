@@ -1,66 +1,178 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# Laravel Project with Sail and Pest Testing
 
-## About Laravel
+## プロジェクト概要
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+このプロジェクトは、Laravel Sailを使用した開発環境と、Pestを使用したテスト環境を備えたLaravelアプリケーションです。本番環境とテスト環境を分けることで、安全かつ効率的な開発とテストを実現します。
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 前提条件
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- DockerとDocker Composeがインストールされていること
 
-## Learning Laravel
+## セットアップ手順
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 1. プロジェクトのクローン
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+まず、リポジトリをクローンします。
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+git clone https://github.com/your-repo/your-project.git
+cd your-project
+```
 
-## Laravel Sponsors
+### 2. Sailのインストール
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Sailを使用して必要なコンテナをビルドします。
 
-### Premium Partners
+```bash
+./vendor/bin/sail up -d
+```
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[WebReinvent](https://webreinvent.com/)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Jump24](https://jump24.co.uk)**
-- **[Redberry](https://redberry.international/laravel/)**
-- **[Active Logic](https://activelogic.com)**
-- **[byte5](https://byte5.de)**
-- **[OP.GG](https://op.gg)**
+### 3. 環境設定
 
-## Contributing
+`.env` ファイルを作成し、適切な値を設定します。
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+cp .env.example .env
+./vendor/bin/sail artisan key:generate
+```
 
-## Code of Conduct
+`.env` ファイル内のデータベース設定を以下のように設定します：
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```env
+DB_CONNECTION=mysql
+DB_HOST=mysql
+DB_PORT=3306
+DB_DATABASE=your_database
+DB_USERNAME=sail
+DB_PASSWORD=password
+```
 
-## Security Vulnerabilities
+### 4. テスト環境設定
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+テスト専用の環境設定ファイル `.env.testing` を作成します。
 
-## License
+```env
+# .env.testing
+DB_CONNECTION=mysql
+DB_HOST=mysql_test
+DB_PORT=3306
+DB_DATABASE=testing_database
+DB_USERNAME=sail
+DB_PASSWORD=password
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### 5. Docker Composeファイルの設定
+
+`docker-compose.yml` ファイルにテスト用のデータベースサービスを追加します。
+
+```yaml
+version: '3'
+services:
+  laravel.test:
+    # existing configuration
+
+  mysql:
+    image: 'mysql/mysql-server:8.0'
+    ports:
+      - '${FORWARD_DB_PORT:-3306}:3306'
+    environment:
+      MYSQL_ROOT_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: '${DB_DATABASE}'
+      MYSQL_USER: '${DB_USERNAME}'
+      MYSQL_PASSWORD: '${DB_PASSWORD}'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    volumes:
+      - 'sail-mysql:/var/lib/mysql'
+      - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
+    networks:
+      - sail
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - '-p${DB_PASSWORD}'
+      retries: 3
+      timeout: 5s
+
+  mysql_test:
+    image: 'mysql/mysql-server:8.0'
+    environment:
+      MYSQL_ROOT_PASSWORD: 'password'
+      MYSQL_ROOT_HOST: '%'
+      MYSQL_DATABASE: 'testing_database'
+      MYSQL_USER: 'sail'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    volumes:
+      - 'sail-mysql-test:/var/lib/mysql'
+    networks:
+      - sail
+    healthcheck:
+      test:
+        - CMD
+        - mysqladmin
+        - ping
+        - '-ppassword'
+      retries: 3
+      timeout: 5s
+
+volumes:
+  sail-mysql:
+    driver: local
+  sail-redis:
+    driver: local
+  sail-meilisearch:
+    driver: local
+  sail-mysql-test:
+    driver: local
+
+networks:
+  sail:
+    driver: bridge
+```
+
+### 6. マイグレーションとシーディング
+
+データベースのマイグレーションとシーディングを実行します。
+
+```bash
+./vendor/bin/sail artisan migrate --seed
+```
+
+### 7. テストの実行
+
+テスト環境を使用してテストを実行します。
+
+```bash
+./vendor/bin/sail test --env=testing
+```
+
+## その他のコマンド
+
+### サーバーの起動
+
+```bash
+./vendor/bin/sail up -d
+```
+
+### サーバーの停止
+
+```bash
+./vendor/bin/sail down
+```
+
+### キャッシュのクリア
+
+```bash
+./vendor/bin/sail artisan cache:clear
+./vendor/bin/sail artisan config:clear
+./vendor/bin/sail artisan route:clear
+./vendor/bin/sail artisan view:clear
+```
+
+## まとめ
+
+このプロジェクトは、Laravel Sailを使用した開発環境と、Pestを使用したテスト環境を提供します。本番環境とテスト環境を分けることで、安全かつ効率的な開発とテストが可能です。これにより、開発者は安心してコードを書き、テストを実行することができます。
