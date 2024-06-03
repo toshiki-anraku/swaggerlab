@@ -1,19 +1,19 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\TodoController;
-use App\Http\Controllers\Api\UserController;
+use App\Http\Controllers\Api\AuthenticationController;
+use App\Http\Controllers\Api\UserProfileController;
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/user', function (Request $request) {
-        return $request->user();
-    });
-
+    // TodoControllerのルート
     Route::apiResource('todos', TodoController::class);
-    Route::put('/user/{user}/update', [UserController::class, 'update']);
-    Route::get('/profile', [UserController::class, 'profile']);
+
+    // UserProfileControllerのルート
+    Route::put('/user/{user}/update', [UserProfileController::class, 'update']);
+    Route::get('/profile', [UserProfileController::class, 'profile']);
 });
 
-Route::post('/register', [UserController::class, 'register']);
-Route::post('/login', [UserController::class, 'login'])->name('login');
+// AuthenticationControllerのルート
+Route::post('/register', [AuthenticationController::class, 'register']);
+Route::post('/login', [AuthenticationController::class, 'login'])->name('login');
